@@ -1,0 +1,190 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "_generator": {
+            "name": "bicep",
+            "version": "0.4.1318.3566",
+            "templateHash": "16708569063711665467"
+        }
+    },
+    "parameters": {
+        "logWorkspaceName": {
+            "type": "string"
+        },
+        "succeededUpdateAlertName": {
+            "type": "string",
+            "defaultValue": "Update Succeeded",
+            "metadata": {
+                "description": "Name of the Alert Rule for updates that succeeded"
+            }
+        },
+        "failledUpdateAlertName": {
+            "type": "string",
+            "defaultValue": "Update Failled",
+            "metadata": {
+                "description": "Name of the Alert Rule for failed updates"
+            }
+        },
+        "updateEmailActionGroupName": {
+            "type": "string",
+            "defaultValue": "Update Email ActionGroup",
+            "metadata": {
+                "description": "Name of the action group to send email notifications"
+            }
+        },
+        "updateEmailActionGroupShortName": {
+            "type": "string",
+            "defaultValue": "updateEmail",
+            "maxLength": 12,
+            "metadata": {
+                "description": "Short name of the action group to send email notifications"
+            }
+        },
+        "updateEmailNotification": {
+            "type": "string",
+            "defaultValue": "EmailAddress",
+            "metadata": {
+                "description": "If you do not enter an Email, the creation is not launched."
+            }
+        },
+        "updateTeamsActionGroupName": {
+            "type": "string",
+            "defaultValue": "Update Teams ActionGroup",
+            "metadata": {
+                "description": "Name of the action group to send notifications to a Teams channel"
+            }
+        },
+        "updateTeamsActionGroupShortName": {
+            "type": "string",
+            "defaultValue": "updateTeams",
+            "maxLength": 12,
+            "metadata": {
+                "description": "Short name of the action group to send notifications to a teams channel"
+            }
+        },
+        "updateTeamsWebhook": {
+            "type": "string",
+            "defaultValue": "WebhookURL",
+            "metadata": {
+                "description": "If you do not enter a URL, the creation is not launched."
+            }
+        }
+    },
+    "variables": {
+        "location": "[resourceGroup().location]",
+        "logWorkspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logWorkspaceName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Insights/scheduledQueryRules",
+            "apiVersion": "2018-04-16",
+            "name": "[parameters('succeededUpdateAlertName')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "displayName": "[parameters('succeededUpdateAlertName')]",
+                "enabled": "true",
+                "schedule": {
+                    "timeWindowInMinutes": 5,
+                    "frequencyInMinutes": 5
+                },
+                "source": {
+                    "dataSourceId": "[variables('logWorkspaceId')]",
+                    "query": "AzureDiagnostics |\nwhere OperationName == \"Job\"  |\nwhere RunbookName_s == \"Patch-MicrosoftOMSComputer\" or RunbookName_s == \"PatchMicrosoftOMSLinuxComputer\" |\nwhere ResultType == \"Completed\" |\nwhere TimeGenerated > ago(60m)",
+                    "queryType": "ResultCount"
+                },
+                "action": {
+                    "odata.type": "Microsoft.WindowsAzure.Management.Monitoring.Alerts.Models.Microsoft.AppInsights.Nexus.DataContracts.Resources.ScheduledQueryRules.AlertingAction",
+                    "severity": "3",
+                    "trigger": {
+                        "threshold": 0,
+                        "thresholdOperator": "GreaterThan"
+                    },
+                    "aznsAction": {
+                        "actionGroup": [
+                            "[resourceId('Microsoft.Insights/actionGroups', parameters('updateEmailActionGroupName'))]",
+                            "[resourceId('Microsoft.Insights/actionGroups', parameters('updateTeamsActionGroupName'))]"
+                        ],
+                        "emailSubject": "Programmed update Completed"
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', parameters('updateEmailActionGroupName'))]",
+                "[resourceId('Microsoft.Insights/actionGroups', parameters('updateTeamsActionGroupName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Insights/scheduledQueryRules",
+            "apiVersion": "2018-04-16",
+            "name": "[parameters('failledUpdateAlertName')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "displayName": "[parameters('failledUpdateAlertName')]",
+                "enabled": "true",
+                "schedule": {
+                    "timeWindowInMinutes": 5,
+                    "frequencyInMinutes": 5
+                },
+                "source": {
+                    "dataSourceId": "[variables('logWorkspaceId')]",
+                    "query": "AzureDiagnostics |\nwhere OperationName == \"Job\"  |\nwhere RunbookName_s == \"Patch-MicrosoftOMSComputer\" or RunbookName_s == \"PatchMicrosoftOMSLinuxComputer\" |\nwhere ResultType == \"Failed\" or ResultType == \"Stopped\" or ResultType == \"Suspended\" |\nwhere TimeGenerated > ago(60m)",
+                    "queryType": "ResultCount"
+                },
+                "action": {
+                    "odata.type": "Microsoft.WindowsAzure.Management.Monitoring.Alerts.Models.Microsoft.AppInsights.Nexus.DataContracts.Resources.ScheduledQueryRules.AlertingAction",
+                    "severity": "1",
+                    "trigger": {
+                        "threshold": 0,
+                        "thresholdOperator": "GreaterThan"
+                    },
+                    "aznsAction": {
+                        "actionGroup": [
+                            "[resourceId('Microsoft.Insights/actionGroups', parameters('updateEmailActionGroupName'))]",
+                            "[resourceId('Microsoft.Insights/actionGroups', parameters('updateTeamsActionGroupName'))]"
+                        ],
+                        "emailSubject": "Programmed update failure"
+                    }
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', parameters('updateEmailActionGroupName'))]",
+                "[resourceId('Microsoft.Insights/actionGroups', parameters('updateTeamsActionGroupName'))]"
+            ]
+        },
+        {
+            "condition": "[not(equals(parameters('updateEmailNotification'), 'EmailAddress'))]",
+            "type": "Microsoft.Insights/actionGroups",
+            "apiVersion": "2021-09-01",
+            "name": "[parameters('updateEmailActionGroupName')]",
+            "location": "global",
+            "properties": {
+                "enabled": true,
+                "groupShortName": "[parameters('updateEmailActionGroupShortName')]",
+                "emailReceivers": [
+                    {
+                        "name": "Receivers",
+                        "emailAddress": "[parameters('updateEmailNotification')]"
+                    }
+                ]
+            }
+        },
+        {
+            "condition": "[not(equals(parameters('updateTeamsWebhook'), 'WebhookURL'))]",
+            "type": "Microsoft.Insights/actionGroups",
+            "apiVersion": "2021-09-01",
+            "name": "[parameters('updateTeamsActionGroupName')]",
+            "location": "global",
+            "properties": {
+                "enabled": true,
+                "groupShortName": "[parameters('updateTeamsActionGroupShortName')]",
+                "webhookReceivers": [
+                    {
+                        "name": "Teams channel Receivers",
+                        "serviceUri": "[parameters('updateTeamsWebhook')]"
+                    }
+                ]
+            }
+        }
+    ]
+}
