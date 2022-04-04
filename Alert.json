@@ -5,13 +5,10 @@
         "_generator": {
             "name": "bicep",
             "version": "0.4.1318.3566",
-            "templateHash": "965630165499916124"
+            "templateHash": "16708569063711665467"
         }
     },
     "parameters": {
-        "location": {
-            "type": "string"
-        },
         "logWorkspaceName": {
             "type": "string"
         },
@@ -75,6 +72,7 @@
         }
     },
     "variables": {
+        "location": "[resourceGroup().location]",
         "logWorkspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logWorkspaceName'))]"
     },
     "resources": [
@@ -82,7 +80,7 @@
             "type": "Microsoft.Insights/scheduledQueryRules",
             "apiVersion": "2018-04-16",
             "name": "[parameters('succeededUpdateAlertName')]",
-            "location": "[parameters('location')]",
+            "location": "[variables('location')]",
             "properties": {
                 "displayName": "[parameters('succeededUpdateAlertName')]",
                 "enabled": "true",
@@ -120,7 +118,7 @@
             "type": "Microsoft.Insights/scheduledQueryRules",
             "apiVersion": "2018-04-16",
             "name": "[parameters('failledUpdateAlertName')]",
-            "location": "[parameters('location')]",
+            "location": "[variables('location')]",
             "properties": {
                 "displayName": "[parameters('failledUpdateAlertName')]",
                 "enabled": "true",
