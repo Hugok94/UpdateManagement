@@ -1,0 +1,407 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "_generator": {
+            "name": "bicep",
+            "version": "0.4.1318.3566",
+            "templateHash": "3926186604403678782"
+        }
+    },
+    "parameters": {
+        "automationAccountName": {
+            "type": "string"
+        },
+        "updateTagValue": {
+            "type": "string",
+            "defaultValue": "Patch group",
+            "metadata": {
+                "description": "Name of the value tag, used to select VMs automatically in the deployment schedule."
+            }
+        },
+        "updateTagKeyWinProd": {
+            "type": "string",
+            "defaultValue": "win-prod",
+            "metadata": {
+                "description": "Tag to identify the OS and the type of environment."
+            }
+        },
+        "updateTagKeyWinDev": {
+            "type": "string",
+            "defaultValue": "win-dev",
+            "metadata": {
+                "description": "Tag to identify the OS and the type of environment."
+            }
+        },
+        "updateTagKeyLinuxProd": {
+            "type": "string",
+            "defaultValue": "linux-prod",
+            "metadata": {
+                "description": "Tag to identify the OS and the type of environment."
+            }
+        },
+        "updateTagKeyLinuxDev": {
+            "type": "string",
+            "defaultValue": "linux-dev",
+            "metadata": {
+                "description": "Tag to identify the OS and the type of environment."
+            }
+        },
+        "updateDeploymentNameWinProd": {
+            "type": "string",
+            "defaultValue": "win-prod",
+            "metadata": {
+                "description": "Name of deployment schedule."
+            }
+        },
+        "updateDeploymentNameWinDev": {
+            "type": "string",
+            "defaultValue": "win-dev",
+            "metadata": {
+                "description": "Name of deployment schedule."
+            }
+        },
+        "updateDeploymentNameLinuxProd": {
+            "type": "string",
+            "defaultValue": "linux-prod",
+            "metadata": {
+                "description": "Name of deployment schedule."
+            }
+        },
+        "updateDeploymentNameLinuxDev": {
+            "type": "string",
+            "defaultValue": "linux-dev",
+            "metadata": {
+                "description": "Name of deployment schedule."
+            }
+        },
+        "baseTime": {
+            "type": "string",
+            "defaultValue": "[utcNow('yyyy-MM-ddTHH:mm:sszzz')]",
+            "metadata": {
+                "description": "[Do not modify] Use current date and hours UTC+0 to select the next deployment dates"
+            }
+        },
+        "updateDayOfWeek": {
+            "type": "string",
+            "defaultValue": "Monday",
+            "allowedValues": [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+                "Sunday"
+            ],
+            "metadata": {
+                "description": "Day of deployment."
+            }
+        },
+        "updateHoursUTC": {
+            "type": "string",
+            "defaultValue": "07",
+            "allowedValues": [
+                "00",
+                "01",
+                "02",
+                "03",
+                "04",
+                "05",
+                "06",
+                "07",
+                "08",
+                "09",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16",
+                "17",
+                "18",
+                "19",
+                "20",
+                "21",
+                "22",
+                "23"
+            ],
+            "metadata": {
+                "description": "Hour of deployment."
+            }
+        },
+        "updateWeekOfMonthDev": {
+            "type": "string",
+            "defaultValue": "Third",
+            "allowedValues": [
+                "First",
+                "Second",
+                "Third",
+                "Fourth",
+                "Last"
+            ],
+            "metadata": {
+                "description": "Week of deployment to NON-PROD environments."
+            }
+        },
+        "updateWeekOfMonthProd": {
+            "type": "string",
+            "defaultValue": "Last",
+            "allowedValues": [
+                "First",
+                "Second",
+                "Third",
+                "Fourth",
+                "Last"
+            ],
+            "metadata": {
+                "description": "Week of deployment to PROD environments."
+            }
+        },
+        "updateLinuxClassification": {
+            "type": "string",
+            "defaultValue": "Critical",
+            "allowedValues": [
+                "Critical",
+                "Critical, Other"
+            ],
+            "metadata": {
+                "description": "Classification used for updating Linux VMs."
+            }
+        },
+        "updateWinClassification": {
+            "type": "string",
+            "defaultValue": "Critical, Security, Definition",
+            "allowedValues": [
+                "Critical, Security, Definition",
+                "Critical, Security, Definition, FeaturePack, ServicePack, Tools, UpdateRollup, Updates"
+            ],
+            "metadata": {
+                "description": "Classification used for updating Windows VMs."
+            }
+        },
+        "updateRebootSetting": {
+            "type": "string",
+            "defaultValue": "IfRequired",
+            "allowedValues": [
+                "IfRequired",
+                "always",
+                "never"
+            ],
+            "metadata": {
+                "description": "Reboot setting after update."
+            }
+        }
+    },
+    "variables": {
+        "subscriptionId": "[subscription().id]",
+        "automationAccount": "[resourceId('Microsoft.Automation/automationAccounts/', parameters('automationAccountName'))]",
+        "currentTime": "[dateTimeAdd(parameters('baseTime'), 'P1D')]",
+        "dateSubstring": "[substring(variables('currentTime'), 0, 11)]",
+        "startTime": "[format('{0}{1}:00:00.9999999+00:00', variables('dateSubstring'), parameters('updateHoursUTC'))]",
+        "updateWeekOfMonthSwitch": {
+            "First": 1,
+            "Second": 2,
+            "Third": 3,
+            "Fourth": 4,
+            "Last": -1
+        },
+        "updateWeekOfMonthDevChosen": "[variables('updateWeekOfMonthSwitch')[parameters('updateWeekOfMonthDev')]]",
+        "updateWeekOfMonthProdChosen": "[variables('updateWeekOfMonthSwitch')[parameters('updateWeekOfMonthProd')]]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Automation/automationAccounts/softwareUpdateConfigurations",
+            "apiVersion": "2019-06-01",
+            "name": "[format('{0}/{1}', variables('automationAccount'), parameters('updateDeploymentNameWinDev'))]",
+            "properties": {
+                "updateConfiguration": {
+                    "operatingSystem": "Windows",
+                    "windows": {
+                        "includedUpdateClassifications": "[parameters('updateWinClassification')]",
+                        "rebootSetting": "[parameters('updateRebootSetting')]"
+                    },
+                    "duration": "PT2H",
+                    "targets": {
+                        "azureQueries": [
+                            {
+                                "scope": [
+                                    "[variables('subscriptionId')]"
+                                ],
+                                "tagSettings": {
+                                    "tags": {
+                                        "[format('{0}', parameters('updateTagValue'))]": [
+                                            "[parameters('updateTagKeyWinDev')]"
+                                        ]
+                                    },
+                                    "filterOperator": "All"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "tasks": {},
+                "scheduleInfo": {
+                    "startTime": "[variables('startTime')]",
+                    "expiryTime": "9999-12-31T23:59:59.9999999+00:00",
+                    "interval": 1,
+                    "frequency": "Month",
+                    "timeZone": "UTC",
+                    "advancedSchedule": {
+                        "monthlyOccurrences": [
+                            {
+                                "day": "[parameters('updateDayOfWeek')]",
+                                "occurrence": "[variables('updateWeekOfMonthDevChosen')]"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/softwareUpdateConfigurations",
+            "apiVersion": "2019-06-01",
+            "name": "[format('{0}/{1}', variables('automationAccount'), parameters('updateDeploymentNameLinuxDev'))]",
+            "properties": {
+                "updateConfiguration": {
+                    "operatingSystem": "Linux",
+                    "linux": {
+                        "includedPackageClassifications": "[parameters('updateLinuxClassification')]",
+                        "rebootSetting": "[parameters('updateRebootSetting')]"
+                    },
+                    "duration": "PT2H",
+                    "targets": {
+                        "azureQueries": [
+                            {
+                                "scope": [
+                                    "[variables('subscriptionId')]"
+                                ],
+                                "tagSettings": {
+                                    "tags": {
+                                        "[format('{0}', parameters('updateTagValue'))]": [
+                                            "[parameters('updateTagKeyLinuxDev')]"
+                                        ]
+                                    },
+                                    "filterOperator": "All"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "tasks": {},
+                "scheduleInfo": {
+                    "startTime": "[variables('startTime')]",
+                    "expiryTime": "9999-12-31T23:59:59.9999999+00:00",
+                    "interval": 1,
+                    "frequency": "Month",
+                    "timeZone": "UTC",
+                    "advancedSchedule": {
+                        "monthlyOccurrences": [
+                            {
+                                "day": "[parameters('updateDayOfWeek')]",
+                                "occurrence": "[variables('updateWeekOfMonthDevChosen')]"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/softwareUpdateConfigurations",
+            "apiVersion": "2019-06-01",
+            "name": "[format('{0}/{1}', variables('automationAccount'), parameters('updateDeploymentNameWinProd'))]",
+            "properties": {
+                "updateConfiguration": {
+                    "operatingSystem": "Windows",
+                    "windows": {
+                        "includedUpdateClassifications": "[parameters('updateWinClassification')]",
+                        "rebootSetting": "[parameters('updateRebootSetting')]"
+                    },
+                    "duration": "PT2H",
+                    "targets": {
+                        "azureQueries": [
+                            {
+                                "scope": [
+                                    "[variables('subscriptionId')]"
+                                ],
+                                "tagSettings": {
+                                    "tags": {
+                                        "[format('{0}', parameters('updateTagValue'))]": [
+                                            "[parameters('updateTagKeyWinProd')]"
+                                        ]
+                                    },
+                                    "filterOperator": "All"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "tasks": {},
+                "scheduleInfo": {
+                    "startTime": "[variables('startTime')]",
+                    "expiryTime": "9999-12-31T23:59:59.9999999+00:00",
+                    "interval": 1,
+                    "frequency": "Month",
+                    "timeZone": "UTC",
+                    "advancedSchedule": {
+                        "monthlyOccurrences": [
+                            {
+                                "day": "[parameters('updateDayOfWeek')]",
+                                "occurrence": "[variables('updateWeekOfMonthProdChosen')]"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/softwareUpdateConfigurations",
+            "apiVersion": "2019-06-01",
+            "name": "[format('{0}/{1}', variables('automationAccount'), parameters('updateDeploymentNameLinuxProd'))]",
+            "properties": {
+                "updateConfiguration": {
+                    "operatingSystem": "Linux",
+                    "linux": {
+                        "includedPackageClassifications": "[parameters('updateLinuxClassification')]",
+                        "rebootSetting": "[parameters('updateRebootSetting')]"
+                    },
+                    "duration": "PT2H",
+                    "targets": {
+                        "azureQueries": [
+                            {
+                                "scope": [
+                                    "[variables('subscriptionId')]"
+                                ],
+                                "tagSettings": {
+                                    "tags": {
+                                        "[format('{0}', parameters('updateTagValue'))]": [
+                                            "[parameters('updateTagKeyLinuxProd')]"
+                                        ]
+                                    },
+                                    "filterOperator": "All"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "tasks": {},
+                "scheduleInfo": {
+                    "startTime": "[variables('startTime')]",
+                    "expiryTime": "9999-12-31T23:59:59.9999999+00:00",
+                    "interval": 1,
+                    "frequency": "Month",
+                    "timeZone": "UTC",
+                    "advancedSchedule": {
+                        "monthlyOccurrences": [
+                            {
+                                "day": "[parameters('updateDayOfWeek')]",
+                                "occurrence": "[variables('updateWeekOfMonthProdChosen')]"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}

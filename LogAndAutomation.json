@@ -1,0 +1,101 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "_generator": {
+            "name": "bicep",
+            "version": "0.4.1318.3566",
+            "templateHash": "1169706042714255089"
+        }
+    },
+    "parameters": {
+        "location": {
+            "type": "string",
+            "defaultValue": "westeurope"
+        },
+        "logAnalyticsWorkspaceName": {
+            "type": "string",
+            "defaultValue": "UpdateManagement-log",
+            "metadata": {
+                "description": "Name of the Log Analytics Workspace that will be created."
+            }
+        },
+        "automationAccountName": {
+            "type": "string",
+            "defaultValue": "UpdateManagement-aa",
+            "metadata": {
+                "description": "Name of the Automation Account that will be created."
+            }
+        },
+        "dataRetention": {
+            "type": "int",
+            "defaultValue": 90,
+            "maxValue": 730,
+            "minValue": 7,
+            "metadata": {
+                "description": "Number of days to retain data."
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "apiVersion": "2020-10-01",
+            "name": "[parameters('logAnalyticsWorkspaceName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "sku": {
+                    "name": "PerGB2018"
+                },
+                "retentionInDays": "[parameters('dataRetention')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts",
+            "apiVersion": "2021-06-22",
+            "name": "[parameters('automationAccountName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "sku": {
+                    "name": "Basic"
+                },
+                "disableLocalAuth": false,
+                "encryption": {
+                    "keySource": "Microsoft.Automation"
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/linkedServices",
+            "apiVersion": "2020-08-01",
+            "name": "[format('{0}/Automation', parameters('logAnalyticsWorkspaceName'))]",
+            "properties": {
+                "resourceId": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "name": "[format('Updates({0})', parameters('logAnalyticsWorkspaceName'))]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            },
+            "plan": {
+                "name": "[format('Updates({0})', parameters('logAnalyticsWorkspaceName'))]",
+                "product": "OMSGallery/Updates",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            ]
+        }
+    ]
+}
